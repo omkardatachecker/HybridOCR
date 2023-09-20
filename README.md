@@ -1,12 +1,11 @@
 # HybridOCR
 Steps for Hybrid OCR.
 
-Before proceeding, first add following dependency in build.gradle file.
+Before proceeding, first add following dependency in settings.gradle file.
 
 
 allprojects {
 repositories {
-...
 maven { url 'https://jitpack.io' }
 }
 }
