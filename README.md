@@ -216,7 +216,7 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
 
 6. To work with hybrid OCR, add following dependency in your apps build.gradle file
 ```groovy
-'implementation 'org.jmrtd:jmrtd:0.7.18'
+ implementation 'org.jmrtd:jmrtd:0.7.18
 ```
    
 
