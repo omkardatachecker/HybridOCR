@@ -73,7 +73,7 @@ WebSettings webSettings = webView.getSettings();
 
 
 3. Add a private class extending WebViewClientCompat. as follows.
-
+```java
 private class LocalContentWebViewClient extends WebViewClientCompat {
 
         private final WebViewAssetLoader mAssetLoader;
@@ -142,10 +142,12 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
         }
     }
 
+```
+
 
 4. Now load following javascript method in activity class which will run on finishing page load.(Refer following code snippet.)
-
-        private void pageLoadFinished(WebView view) {
+```java
+ private void pageLoadFinished(WebView view) {
         if (ContextCompat.checkSelfPermission(DocumentCaptureActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
@@ -196,25 +198,31 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
         }
 
    }
+```
+       
 
 5. To receive the captured image from above javascript code, write a listner as follwos.
-
-   public class ImageListner{
+```java
+ public class ImageListner{
    @JavascriptInterface
    public void postMessage(String message) {
    //Here you will receive the JSON containing the the images in bytes format.
    }
    }
+```
+  
 
 
 
 6. To work with hybrid OCR, add following dependency in your apps build.gradle file
-
-   '    implementation 'org.jmrtd:jmrtd:0.7.18'
+```groovy
+'implementation 'org.jmrtd:jmrtd:0.7.18'
+```
+   
 
 7. In your activity class, implement 'DCOCRResultListener' interface. It has two methods as follows.
-
-   @Override
+```java
+@Override
    public void onSuccessMRZScan(MRZInfo mrzInfo) {
    // Here you will receive the scanned MRZ data in the object.
    }
@@ -224,11 +232,15 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
    // Error if MRZ Scan fails.
    Log.d("Error", error.name());
    }
+```
+   
 
 8. Once you implement these methods. You need to call following function and pass it the output you received in step no. 5
-
-   HybridOCRLib hybridOCRLib = new HybridOCRLib(this, this);
+```java
+HybridOCRLib hybridOCRLib = new HybridOCRLib(this, this);
    hybridOCRLib.scanImage(dataString, this);
+```
+   
 
 In above code snippet for scanImage() method, first parameter is image dataString and other parameter is 'DCOCRResultListener'.
 
