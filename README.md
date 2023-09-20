@@ -1,21 +1,29 @@
 # HybridOCR
 Steps for Hybrid OCR.
 
-Before proceeding, first add following dependency in settings.gradle file.
+Before proceeding, first add following dependency in `settings.gradle` file.
 
-
+```groovy
 allprojects {
-repositories {
-maven { url 'https://jitpack.io' }
+    repositories {
+        maven { 
+            url 'https://jitpack.io' 
+        }
 }
 }
+```
 
-And then add following dependency.
 
+And then add following dependency in app level `build.gradle`.
 
+```groovy
 dependencies {
-implementation 'com.github.omkardatachecker:HybridOCR:Tag'
+    implementation 'com.github.omkardatachecker:HybridOCR:Tag'
+    implementation 'org.jmrtd:jmrtd:0.7.18
+
 }
+```
+
 
 
 Before Proceeding to the steps to integrate, you need to do few configurations.
@@ -213,13 +221,9 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
 
 
 
-6. To work with hybrid OCR, add following dependency in your apps build.gradle file
-```groovy
- implementation 'org.jmrtd:jmrtd:0.7.18
-```
-   
 
-7. In your activity class, implement 'DCOCRResultListener' interface. It has two methods as follows.
+
+6. In your activity class, implement 'DCOCRResultListener' interface. It has two methods as follows.
 ```java
 @Override
    public void onSuccessMRZScan(MRZInfo mrzInfo) {
@@ -234,7 +238,7 @@ private class LocalContentWebViewClient extends WebViewClientCompat {
 ```
    
 
-8. Once you implement these methods. You need to call following function and pass it the output you received in step no. 5
+7. Once you implement these methods. You need to call following function and pass it the output you received in step no. 5
 ```java
 HybridOCRLib hybridOCRLib = new HybridOCRLib(this, this);
    hybridOCRLib.scanImage(dataString, this);
