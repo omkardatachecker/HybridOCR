@@ -38,7 +38,8 @@ Now, prepare the Activity to run Javascript SDK to capture document.
 
 2. Declare a webview and, in onCreate() add following configuration for the webview.
 
-   WebSettings webSettings = webView.getSettings();
+```java
+WebSettings webSettings = webView.getSettings();
    webSettings.setJavaScriptEnabled(true);
    webSettings.setMediaPlaybackRequiresUserGesture(false);
 
@@ -67,6 +68,8 @@ Now, prepare the Activity to run Javascript SDK to capture document.
         });
 
         webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+```
+  
 
 
 3. Add a private class extending WebViewClientCompat. as follows.
