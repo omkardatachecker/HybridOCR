@@ -1,8 +1,8 @@
 # Android Integration Guide for HybridOCR
 
-This documentation is an extension of the [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture). 
+This documentation is an extension of the [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture/android/README.md). 
 It enables AutoCapture with an external MRZ engine (HybridOCR) that it can use to scan the MRZ of a document. 
-Before continuing, please make sure to have read the [AutoCapture SDK Documentation](https://github.com/datacheckerbv/AutoCapture).
+Before continuing, please make sure to have read the [AutoCapture SDK Documentation]((https://github.com/datacheckerbv/AutoCapture/android/README.md).
 
 Steps for Hybrid OCR.
 
@@ -11,11 +11,11 @@ Steps for Hybrid OCR.
 Before you begin, ensure you have the following:
 
 - Android Studio installed on your development machine.
-- The [AutoCapture repository](https://github.com/datacheckerbv/AutoCapture).
+- The integrated [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture) according to the `/android` documentation.
 - The [HybridOCR Android SDK](https://github.com/datacheckerbv/HybridOCR).
 
 ## Set Dependencies.
-Before proceeding, first add following dependency in `settings.gradle` file.
+Before proceeding, add the following dependency in the `settings.gradle` file.
 
 ```groovy
 allprojects {
@@ -27,7 +27,7 @@ allprojects {
 }
 ```
 
-And then add following dependency in app level `build.gradle`.
+And then add the following dependency in app level `build.gradle`.
 
 ```groovy
 dependencies {
@@ -81,7 +81,7 @@ public class OnImageListener implements HybridOCRLib.DCOCRResultListener {
 ```
 
 ### **Output listener**
-Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture/android/README.md).
 Here we will define the 'outputListener'. 
 
 This outputListener will capture the output including MRZ information.
@@ -99,20 +99,10 @@ public class OutputListener {
 
 ## **Loading AutoCapture SDK**
 
-Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture/android/README.md).
 Here we will configure the [onImageListener](#onimage-listener). 
 
-Before continuing, please make sure to read the [Configuration](../README.md#configuration) documentation.
-
-Now, we will configure the AutoCapture SDK and start it. An example is given below. In this example, the configuration requires two additional variables: `modelURL`, `TOKEN`.
-
-First, `modelURL` indicates the location where the SDK models can be found. As explained in [1.4](#14-setting-up-the-assets-folder) this will be in the created `assets` folder. The `modelURL` will than be: `https://appassets.androidplatform.net/assets/<PATH TO AUTOCAPTURE FOLDER>/html/models/`
-
-Second, `TOKEN` needs to be replaced by a valid [SDK Token](../README.md#sdk-token).
-
-As can be seen in the example below, the `listeners` from [2.1](#21-set-up-listeners) are used within the `onComplete`, `onError` and `onUserExit` callback functions to handle the data.
-
-Note: Within `MRZ_SETTINGS` the setting `OCR` is `false`, please refer to [2.3](#23-hybrid-ocr) and [External MRZ](../README.md/#external-mrz).
+Before continuing, please make sure to read the [Configuration](https://github.com/datacheckerbv/AutoCapture/README.md#configuration) documentation.
 
 ```java
 private void startAutoCaptureConfig(WebView view) {
@@ -170,7 +160,7 @@ private void startAutoCaptureConfig(WebView view) {
 
 ## **Configuring WebView**
 
-Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture/android/README.md).
 Here we will set the [onImageListener](#onimage-listener) and the [outputListener](#output-listener).
 
 Inside the `onCreate()` method of your activity, configure the `WebView` to load and display your web app. This involves enabling JavaScript, setting up the asset loader, and configuring various settings.
