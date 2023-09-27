@@ -14,7 +14,8 @@ Before you begin, ensure you have the following:
 - The integrated [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture) according to the [Android](https://github.com/datacheckerbv/AutoCapture/android/README.md) documentation.
 - The [HybridOCR Android SDK](https://github.com/datacheckerbv/HybridOCR).
 
-## Set Dependencies.
+## Set Dependencies
+
 Before proceeding, add the following dependency in the `settings.gradle` file.
 
 ```groovy
@@ -81,6 +82,7 @@ public class OnImageListener implements HybridOCRLib.DCOCRResultListener {
 ```
 
 ### **Output listener**
+
 Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture/android/README.md).
 Here we will define the 'outputListener'. 
 
@@ -210,6 +212,3 @@ webView.setWebChromeClient(new WebChromeClient() {
 // Load the web app URL
 webView.loadUrl("https://appassets.androidplatform.net/assets/<PATH TO AUTOCAPTURE FOLDER>/index.html");
 ```
- 
-
-
