@@ -2,7 +2,7 @@
 
 This documentation is an extension of the [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture/android/README.md). 
 It enables AutoCapture with an external MRZ engine (HybridOCR) that it can use to scan the MRZ of a document. 
-Before continuing, please make sure to have read the [AutoCapture SDK Documentation]((https://github.com/datacheckerbv/AutoCapture/android/README.md).
+Before continuing, please make sure to have read the [AutoCapture SDK Documentation](https://github.com/datacheckerbv/AutoCapture/android/README.md).
 
 Steps for Hybrid OCR.
 
