@@ -26,9 +26,7 @@ import com.google.gson.Gson;
 import org.jmrtd.lds.icao.MRZInfo;
 
 
-public class MainActivity extends AppCompatActivity implements  HybridOCRLib.DCOCRResultListener {
-
-    HybridOCRLib hybridOCRLib;
+public class MainActivity extends AppCompatActivity{
 
     private Button documentCaptureButton;
 
@@ -42,8 +40,6 @@ public class MainActivity extends AppCompatActivity implements  HybridOCRLib.DCO
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        hybridOCRLib = new HybridOCRLib();
-        hybridOCRLib.greet();
         startActivityForResult = new ActivityResultContracts.StartActivityForResult();
 
 
@@ -69,39 +65,9 @@ public class MainActivity extends AppCompatActivity implements  HybridOCRLib.DCO
                     Intent returnIntent = result.getData();
                     long imageData = returnIntent.getLongExtra(IMAGE_DATA, 1);
                     Log.d("MainActivity", "Received image data is : " + imageData);
-
-                    DBHelper dbHelper = new DBHelper(MainActivity.this);
-                    SQLiteDatabase db = dbHelper.getReadableDatabase();
-
-                    Cursor cursor = db.query(TABLE_NAME, null, null, null, null, null, null);
-
-                    String data = "";
-                    if (cursor.moveToFirst()) {
-                        data = cursor.getString(cursor.getColumnIndexOrThrow(COLUMN_NAME));
-                        // Handle the retrieved data
-                        Gson gson = new Gson();
-                        ImagesModel imagesModel = gson.fromJson(data, ImagesModel.class);
-                        scanCapturedDoc(imagesModel.getImages().get(0));
-                    }
-                    cursor.close();
                 }
             }
         });
     }
 
-    void scanCapturedDoc(String data){
-        hybridOCRLib.scanImage(data, this);
-    }
-
-    @Override
-    public void onSuccessMRZScan(MRZInfo mrzInfo) {
-
-        Log.d("MAINACTIVITY", "onSuccessMRZScan");
-        Log.d("MAINACTIVITY", mrzInfo.getDocumentNumber());
-    }
-
-    @Override
-    public void onFailure(Constants.ERROR_CODE error) {
-
-    }
 }

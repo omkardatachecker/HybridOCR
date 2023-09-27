@@ -1,17 +1,9 @@
 package com.datachecker.hybridocr.ui;
 
-import static com.datachecker.hybridocr.MainActivity.IMAGE_DATA;
-import static com.datachecker.hybridocr.db.DBHelper.COLUMN_NAME;
-import static com.datachecker.hybridocr.db.DBHelper.ID;
-import static com.datachecker.hybridocr.db.DBHelper.TABLE_NAME;
-
 import android.Manifest;
 import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -32,14 +24,14 @@ import androidx.core.content.ContextCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
-import com.datachecker.hybridocr.ImagesModel;
+import com.datachecker.hybridocr.model.ImagesModel;
 import com.datachecker.hybridocr.R;
-import com.datachecker.hybridocr.db.DBHelper;
+import com.datachecker.hybridocrlib.HybridOCRLib;
 import com.google.gson.Gson;
 
+import org.jmrtd.lds.icao.MRZInfo;
 import org.json.JSONException;
 
-import java.util.ArrayList;
 
 
 public class DocumentCaptureActivity extends AppCompatActivity {
@@ -47,6 +39,10 @@ public class DocumentCaptureActivity extends AppCompatActivity {
 
 
     private WebView webView;
+
+
+    private WebView toEvalutateWebView;
+    private boolean isRunning = false;
 
     class JsObject {
         @JavascriptInterface
@@ -70,11 +66,11 @@ public class DocumentCaptureActivity extends AppCompatActivity {
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
                 .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(this))
                 .build();
+
         webView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
-        webView.addJavascriptInterface(new ImageListner() , "imageMessageHandler");
-        webView.addJavascriptInterface(new ExitListner() , "exitMessageHandler");
-//        webView.addJavascriptInterface(new LogListner() , "logMessageHandler");
-        webView.addJavascriptInterface(new OutputListner() , "outPutMessageHandler");
+        webView.addJavascriptInterface(new OutputListener() , "imageMessageHandler");
+        webView.addJavascriptInterface(new ExitListener() , "exitMessageHandler");
+        webView.addJavascriptInterface(new OnImageListener() , "onImageMessageHandler");
 
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -93,12 +89,7 @@ public class DocumentCaptureActivity extends AppCompatActivity {
                 }
             }
         });
-
-
         webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
-
-
-
     }
 
     private class LocalContentWebViewClient extends WebViewClientCompat {
@@ -110,45 +101,8 @@ public class DocumentCaptureActivity extends AppCompatActivity {
         }
 
         @Override
-        public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            super.onPageStarted(view, url, favicon);
-            String script = "\"\"\n" +
-                    "            function log(emoji, type, args) {\n" +
-                    "              window.outPutMessageHandler.postMessage(\n" +
-                    "                `${emoji} JS ${type}: ${Object.values(args)\n" +
-                    "                  .map(v => typeof(v) === \"undefined\" ? \"undefined\" : typeof(v) === \"object\" ? JSON.stringify(v) : v.toString())\n" +
-                    "                  .map(v => v.substring(0, 3000)) // Limit msg to 3000 chars\n" +
-                    "                  .join(\", \")}`\n" +
-                    "              )\n" +
-                    "            }\n" +
-                    "        \n" +
-                    "            let originalLog = console.log\n" +
-                    "            let originalWarn = console.warn\n" +
-                    "            let originalError = console.error\n" +
-                    "            let originalDebug = console.debug\n" +
-                    "        \n" +
-                    "            console.log = function() { log(\"\uD83D\uDCD7\", \"log\", arguments); originalLog.apply(null, arguments) }\n" +
-                    "            console.warn = function() { log(\"\uD83D\uDCD9\", \"warning\", arguments); originalWarn.apply(null, arguments) }\n" +
-                    "            console.error = function() { log(\"\uD83D\uDCD5\", \"error\", arguments); originalError.apply(null, arguments) }\n" +
-                    "            console.debug = function() { log(\"\uD83D\uDCD8\", \"debug\", arguments); originalDebug.apply(null, arguments) }\n" +
-                    "        \n" +
-                    "            window.addEventListener(\"error\", function(e) {\n" +
-                    "               log(\"\uD83D\uDCA5\", \"Uncaught\", [`${e.message} at ${e.filename}:${e.lineno}:${e.colno}`])\n" +
-                    "            })\n" +
-                    "        \"\"";
-
-            view.evaluateJavascript(script, new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(String s) {
-                    Log.d("JavaScript onPageStart", s);
-                }
-            });
-        }
-
-        @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
-            Log.d("*****", "Page load complete");
 
            pageLoadFinished(view);
 
@@ -160,9 +114,6 @@ public class DocumentCaptureActivity extends AppCompatActivity {
                                                           WebResourceRequest request) {
             return mAssetLoader.shouldInterceptRequest(request.getUrl());
         }
-
-
-
         @Override
         @SuppressWarnings("deprecation") // to support API < 21
         public WebResourceResponse shouldInterceptRequest(WebView view,
@@ -170,7 +121,6 @@ public class DocumentCaptureActivity extends AppCompatActivity {
             return mAssetLoader.shouldInterceptRequest(Uri.parse(url));
         }
     }
-
     private void pageLoadFinished(WebView view) {
         if (ContextCompat.checkSelfPermission(DocumentCaptureActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -191,28 +141,32 @@ public class DocumentCaptureActivity extends AppCompatActivity {
                     "                FLIP: true,\n" +
                     "                FLIP_EXCEPTION: ['P'],\n" +
                     "                MIN_VALID_SCORE: 50,\n" +
-                    "                OCR: true\n" +
+                    "                OCR: false\n" +
                     "            },\n" +
                     "            MODELS_PATH:\"" + modelUrl + "\",\n" +
                     "            onComplete: function (data) {\n" +
                     "                imageMessageHandler.postMessage(JSON.stringify(data));\n" +
                     "                window.AC.stop()\n" +
                     "            },\n" +
+                    "            onImage: function (data) {\n" +
+                    "                onImageMessageHandler.postMessage(JSON.stringify(data));\n" +
+                    "            },\n" +
                     "            onError: function(error) {\n" +
                     "                console.log(error)\n" +
-                    "                window.AC.stop();\n" +
-                    "                window.AC.alert(error)\n" +
+                    "                exitMessageHandler.postMessage(error);\n" +
                     "            },\n" +
-
-                    "                       onUserExit: function (data) {\n" +
-                    "                           window.exitMessageHandler.postMessage(data);\n" +
-                    "                       }\n" +
-                    "                   });\n" +
+                    "            onUserExit: function (error) {\n" +
+                    "                exitMessageHandler.postMessage(error);\n" +
+                    "             }\n" +
+                    "          });\n" +
                     "        \"\"";
 
             Log.d("JavaScript SCRIPT", script);
-
-            view.evaluateJavascript(script, new ValueCallback<String>() {
+            toEvalutateWebView = view;
+            if (webView == view) {
+                Log.d("EQUAL_WEBVIEW", "Both EQUAL_WEBVIEW");
+            }
+            webView.evaluateJavascript(script, new ValueCallback<String>() {
                 @Override
                 public void onReceiveValue(String s) {
                     Log.d("JavaScriptLog", s);
@@ -221,73 +175,51 @@ public class DocumentCaptureActivity extends AppCompatActivity {
         }
 
     }
-
-
-
-    public class ImageListner{
+    public class OutputListener {
         @JavascriptInterface
         public void postMessage(String message) throws JSONException {
-            Log.d("ImageListner" , message);
-            Log.d("ImageListner" , "message Printed");
-            ArrayList<String> stringArray = new ArrayList<String>();
-
             Gson gson = new Gson();
+            Log.d("MRZ_OUTPUT", message);
             ImagesModel imagesModel = gson.fromJson(message, ImagesModel.class);
 
-
-            DBHelper dbHelper = new DBHelper(DocumentCaptureActivity.this);
-            SQLiteDatabase db = dbHelper.getWritableDatabase();
-
-            ContentValues values = new ContentValues();
-            values.put(COLUMN_NAME, message);
-            values.put(ID, 1);
-            long newRowId = 0;
-            try {
-                newRowId = db.insert(TABLE_NAME, null, values);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-
-            if (newRowId == -1) {
-                newRowId = db.update(TABLE_NAME, values,  ID + "=1", null );
-            }
             Intent returnIntent = new Intent();
-            returnIntent.putExtra(IMAGE_DATA, newRowId);
             setResult(Activity.RESULT_OK, returnIntent);
             finish();
-
         }
     }
 
-    String writeToFileAndReturnPath(String data) {
-        String path = "";
-
-
-        return path;
-    }
-
-    public class ExitListner {
+    public class ExitListener {
         @JavascriptInterface
         public void postMessage(String message) {
-            Log.d("ExitListner" , message);
+            Log.d("ExitListener" , message);
+            finish();
         }
     }
 
-    public class OutputListner {
+    public class OnImageListener implements HybridOCRLib.DCOCRResultListener {
         @JavascriptInterface
         public void postMessage(String message) {
-            Log.d("ExitListner" , message);
+            if (!isRunning) {
+                isRunning = true;
+                Log.d("OnImageListener", message);
+                HybridOCRLib hybridOCRLib = new HybridOCRLib();
+                hybridOCRLib.scanImage(message, this);
+            }
+        }
+
+        @Override
+        public void onSuccessMRZScan(MRZInfo mrzInfo, String mrzLines) {
+            isRunning = false;
+            String script = "window.AC.parse_mrz(\"" + mrzLines + "\");" +
+                    " console.log('evaluated script')";
+            Log.d("JS CODE", script);
+            runOnUiThread(() -> webView.evaluateJavascript(script, s -> Log.d("onReceiveValue" , s)));
+        }
+
+        @Override
+        public void onFailure(Exception error) {
+            isRunning = false;
         }
     }
-
-//    @JavascriptInterface
-//    public void showMsg(String message) {
-//        Log.d("ReceivedMessage", message);
-//    }
-//
-//    @JavascriptInterface
-//    public void showMsg(String message) {
-//        Log.d("ReceivedMessage", message);
-//    }
 
 }

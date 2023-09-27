@@ -7,7 +7,6 @@ import static com.datachecker.hybridocrlib.mlkit.text.TextRecognitionProcessor.I
 import static com.datachecker.hybridocrlib.mlkit.text.TextRecognitionProcessor.PASSPORT_TD_3_LINE_1_REGEX;
 import static com.datachecker.hybridocrlib.mlkit.text.TextRecognitionProcessor.PASSPORT_TD_3_LINE_2_REGEX;
 import static com.datachecker.hybridocrlib.mlkit.text.TextRecognitionProcessor.TYPE_ID_CARD;
-import static com.datachecker.hybridocrlib.model.Constants.ERROR_CODE.MRZ_SCAN_FAILED;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -18,8 +17,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.datachecker.hybridocrlib.mlkit.text.TextRecognitionProcessor;
-import com.datachecker.hybridocrlib.model.Constants;
+import com.datachecker.hybridocrlib.exception.ScanFailedException;
 import com.datachecker.hybridocrlib.model.DocType;
 import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.text.Text;
@@ -36,13 +34,17 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
+public class HybridOCRLib {
 
     private String scannedTextBuffer = "";
     private DCOCRResultListener resultListener;
     MRZInfo mrzInfo;
     AppCompatActivity activity;
 
+
+    private String mrzString = "";
+
+    private DocType currentDocType;
 
 
 
@@ -77,7 +79,6 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
 
             int oneThirdHeight = rotatedBitmap.getHeight() / 3;
             int fromHere = (int) (rotatedBitmap.getHeight() * 0.5) + (int) (oneThirdHeight / 2);
-//        Bitmap croppedBitmap = Bitmap.createBitmap(rotatedBitmap, 0, rotatedBitmap.getHeight() / 2, rotatedBitmap.getWidth(), rotatedBitmap.getHeight() / 2);
             Bitmap croppedBitmap = Bitmap.createBitmap(rotatedBitmap, 0, fromHere, rotatedBitmap.getWidth(), oneThirdHeight);
             runTextRecognition(croppedBitmap);
         }
@@ -102,6 +103,7 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
                         e -> {
                             // Task failed with an exception
                             e.printStackTrace();
+                            resultListener.onFailure(e);
                         });
     }
 
@@ -124,25 +126,33 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
 
         if (mrzInfo != null){
             Log.d(TAG, "Calling finishScanning2: " + mrzInfo.getDocumentNumber());
-            finishScanning(mrzInfo);
+            finishScanning(mrzInfo, currentDocType);
         } else {
             Log.d(TAG, "Failed Calling finishScanning2: MRZINFO is NULL");
+            resultListener.onFailure(new ScanFailedException("Failed to scan MRZ"));
         }
     }
 
-    private void finishScanning(final MRZInfo mrzInfo) {
+    private void finishScanning(final MRZInfo mrzInfo, DocType docType) {
         try {
-            if(isMrzValid(mrzInfo)) {
+            if(isMrzValid(mrzInfo, docType)) {
                 // Delay returning result 1 sec. in order to make mrz text become visible on graphicOverlay by user
                 // You want to call 'resultListener.onSuccess(mrzInfo)' without no delay
                 Log.d(TAG, "MRZInfo: " + mrzInfo.getDocumentNumber());
-                resultListener.onSuccessMRZScan(mrzInfo);
+                if (docType == DocType.ID_CARD) {
+                    mrzString = scannedTextBuffer.substring(0, 30) + "\\n" + scannedTextBuffer.substring(30, 60) + "\\n" + scannedTextBuffer.substring(60, 90);
+                } else {
+                    mrzString = scannedTextBuffer.substring(0, 44) + "\\n" + scannedTextBuffer.substring(44, 88);
+                }
+                resultListener.onSuccessMRZScan(mrzInfo, mrzString);
             } else {
-                resultListener.onFailure(MRZ_SCAN_FAILED);
+                ScanFailedException exception = new ScanFailedException("Scanning Failed");
+                resultListener.onFailure(exception);
             }
 
         } catch(Exception exp) {
             Log.d(TAG, "MRZ DATA is not valid");
+            resultListener.onFailure(exp);
         }
     }
 
@@ -150,23 +160,28 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
         scannedTextBuffer += element.getText();
         DocType docType;
         docType = getDocumentType(scannedTextBuffer);
-
         Log.d(TAG, "Scanned text Buffer is : " + scannedTextBuffer);
 
         if(docType == DocType.ID_CARD) {
+            currentDocType = DocType.ID_CARD;
             Log.d("ID_CARD", "**** ID_CARD Detected");
-//            Log.d(TAG, "Scanned text Buffer is : " + scannedTextBuffer);
             Pattern patternIDCardTD1Line1 = Pattern.compile(ID_CARD_TD_1_LINE_1_REGEX);
             Matcher matcherIDCardTD1Line1 = patternIDCardTD1Line1.matcher(scannedTextBuffer);
 
             Pattern patternIDCardTD1Line2 = Pattern.compile(ID_CARD_TD_1_LINE_2_REGEX);
             Matcher matcherIDCardTD1Line2 = patternIDCardTD1Line2.matcher(scannedTextBuffer);
 
+
             if(matcherIDCardTD1Line1.find() && matcherIDCardTD1Line2.find()) {
                 String line1 = matcherIDCardTD1Line1.group(0);
                 String line2 = matcherIDCardTD1Line2.group(0);
                 int indexOfID = line1.indexOf(TYPE_ID_CARD);
                 if ( indexOfID >= 0) {
+                    Log.d("IDMRZ_STRINGGGG_LINE1", line1);
+                    Log.d("IDMRZ_STRINGGGG_LINE2", line2);
+//                    Log.d("IDMRZ_STRINGGGG_LINE3", line3);
+                    Log.d("Final_SCANNED_BUFFER", scannedTextBuffer);
+
                     line1 = line1.substring(line1.indexOf(TYPE_ID_CARD));
                     String documentNumber = line1.substring(5, 14);
                     documentNumber = documentNumber.replace("O", "0");
@@ -181,17 +196,32 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
                 }
             }
         } else if (docType == DocType.PASSPORT) {
-            Log.d("PASSPORT", "**** PASSPORT Detected");
-
-            Pattern patternPassportTD3Line1 = Pattern.compile(PASSPORT_TD_3_LINE_1_REGEX);
-            Matcher matcherPassportTD3Line1 = patternPassportTD3Line1.matcher(scannedTextBuffer);
+            currentDocType = DocType.PASSPORT;
+            scannedTextBuffer = scannedTextBuffer.substring(scannedTextBuffer.indexOf("P<"));
 
             Pattern patternPassportTD3Line2 = Pattern.compile(PASSPORT_TD_3_LINE_2_REGEX);
             Matcher matcherPassportTD3Line2 = patternPassportTD3Line2.matcher(scannedTextBuffer);
 
+            Pattern patternPassportTD3Line1 = Pattern.compile(PASSPORT_TD_3_LINE_1_REGEX);
+            Matcher matcherPassportTD3Line1 = patternPassportTD3Line1.matcher(scannedTextBuffer);
+
             if (matcherPassportTD3Line1.find() && matcherPassportTD3Line2.find()) {
+                String tempScanBuffer;
                 String line2 = matcherPassportTD3Line2.group(0);
-                String documentNumber = line2.substring(0, 9);
+                tempScanBuffer = scannedTextBuffer.replace(line2, "");
+                tempScanBuffer = tempScanBuffer.substring(tempScanBuffer.indexOf("P<"));
+                if (tempScanBuffer.length() < 44) {
+                    int range = 44 - tempScanBuffer.length();
+                    for (int i = 0 ; i < range; i++) {
+                        tempScanBuffer = tempScanBuffer + "<";
+                    }
+                }
+
+                String line1 = matcherPassportTD3Line1.group(0);
+
+                Log.d("PPMRZ_STRINGGGG_LINE2", line1);
+                Log.d("PPMRZ_STRINGGGG_LINE2", line2);
+                 String documentNumber = line2.substring(0, 9);
                 documentNumber = documentNumber.replace("O", "0");
                 String dateOfBirthDay = line2.substring(13, 19);
                 String expiryDate = line2.substring(21, 27);
@@ -199,6 +229,8 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
                 Log.d(TAG, "Scanned Text Buffer Passport ->>>> " + "Doc Number: " + documentNumber + " DateOfBirth: " + dateOfBirthDay + " ExpiryDate: " + expiryDate);
 
                 mrzInfo = buildTempMrz(documentNumber, dateOfBirthDay, expiryDate);
+                scannedTextBuffer = tempScanBuffer + line2;
+                Log.d("UPDATED_SCANNEDBUFFER", scannedTextBuffer);
 
             }
         }
@@ -236,24 +268,20 @@ public class HybridOCRLib implements TextRecognitionProcessor.ResultListener {
         }
     }
 
-    private boolean isMrzValid(MRZInfo mrzInfo) {
-        return mrzInfo.getDocumentNumber() != null && mrzInfo.getDocumentNumber().length() >= 8 &&
-                mrzInfo.getDateOfBirth() != null && mrzInfo.getDateOfBirth().length() == 6 &&
-                mrzInfo.getDateOfExpiry() != null && mrzInfo.getDateOfExpiry().length() == 6;
-    }
-
-    @Override
-    public void onSuccess(MRZInfo mrzInfo) {
-
-    }
-
-    @Override
-    public void onError(Exception exp) {
-
+    private boolean isMrzValid(MRZInfo mrzInfo, DocType docType) {
+        if (docType == DocType.ID_CARD) {
+            return mrzInfo.getDocumentNumber() != null && mrzInfo.getDocumentNumber().length() >= 8 &&
+                    mrzInfo.getDateOfBirth() != null && mrzInfo.getDateOfBirth().length() == 6 &&
+                    mrzInfo.getDateOfExpiry() != null && mrzInfo.getDateOfExpiry().length() == 6;
+        } else {
+            return mrzInfo.getDocumentNumber() != null && mrzInfo.getDocumentNumber().length() >= 9 &&
+                    mrzInfo.getDateOfBirth() != null && mrzInfo.getDateOfBirth().length() == 6 &&
+                    mrzInfo.getDateOfExpiry() != null && mrzInfo.getDateOfExpiry().length() == 6;
+        }
     }
 
     public interface DCOCRResultListener {
-        void onSuccessMRZScan(MRZInfo mrzInfo);
-        void onFailure(Constants.ERROR_CODE error);
+        void onSuccessMRZScan(MRZInfo mrzInfo, String mrzLines);
+        void onFailure(Exception error);
     }
 }
