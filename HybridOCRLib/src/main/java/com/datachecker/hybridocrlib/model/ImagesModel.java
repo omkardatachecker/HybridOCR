@@ -1,4 +1,4 @@
-package com.datachecker.hybridocr.model;
+package com.datachecker.hybridocrlib.model;
 
 import androidx.lifecycle.MutableLiveData;
 

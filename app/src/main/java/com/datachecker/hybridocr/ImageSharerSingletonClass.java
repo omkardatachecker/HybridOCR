@@ -1,6 +1,6 @@
 package com.datachecker.hybridocr;
 
-import com.datachecker.hybridocr.model.ImagesModel;
+import com.datachecker.hybridocrlib.model.ImagesModel;
 
 public class ImageSharerSingletonClass {
     private static ImageSharerSingletonClass sharedInstance = null;

@@ -24,7 +24,7 @@ import androidx.core.content.ContextCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
-import com.datachecker.hybridocr.model.ImagesModel;
+import com.datachecker.hybridocrlib.model.ImagesModel;
 import com.datachecker.hybridocr.R;
 import com.datachecker.hybridocrlib.HybridOCRLib;
 import com.google.gson.Gson;

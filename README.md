@@ -1,6 +1,20 @@
-# HybridOCR
+# Android Integration Guide for HybridOCR
+
+This documentation is an extension of the [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture). 
+It enables AutoCapture with an external MRZ engine (HybridOCR) that it can use to scan the MRZ of a document. 
+Before continuing, please make sure to have read the [AutoCapture SDK Documentation](https://github.com/datacheckerbv/AutoCapture).
+
 Steps for Hybrid OCR.
 
+## Prerequisites
+
+Before you begin, ensure you have the following:
+
+- Android Studio installed on your development machine.
+- The [AutoCapture repository](https://github.com/datacheckerbv/AutoCapture).
+- The [HybridOCR Android SDK](https://github.com/datacheckerbv/HybridOCR).
+
+## Set Dependencies.
 Before proceeding, first add following dependency in `settings.gradle` file.
 
 ```groovy
@@ -13,238 +27,199 @@ allprojects {
 }
 ```
 
-
 And then add following dependency in app level `build.gradle`.
 
 ```groovy
 dependencies {
-    implementation 'com.github.omkardatachecker:HybridOCR:Tag'
-    implementation 'org.jmrtd:jmrtd:0.7.18
+    implementation 'com.github.omkardatachecker:HybridOCR:<Tag>'
+    implementation 'org.jmrtd:jmrtd:0.7.18'
+    implementation 'com.google.code.gson:gson:2.10.1'
 
 }
 ```
 
+## **Set up listeners**
 
+### **OnImage listener**
 
-Before Proceeding to the steps to integrate, you need to do few configurations.
+Define a JavaScript interface class to receive Image from the AutoCapture SDK. This listener will be called `onImage` and is defined within the AutoCapture configuration.
 
-A. In Manifest file, please add following permissions.
-
-
-    <uses-feature android:name="android.hardware.camera" />
-    <uses-permission-sdk-23 android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.CAMERA" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-B. Create an 'assets' folder(Go to the app > right-click > New > Folder > Asset Folder and create the asset folder.) and copy the SDK files in that folder.
-
-Now, prepare the Activity to run Javascript SDK to capture document.
-
-1. Request permissions for Camera Access.
-
-2. Declare a webview and, in onCreate() add following configuration for the webview.
+Step 1: Add 'isRunning' flag in the your activity add below in the global scope.
 
 ```java
-WebSettings webSettings = webView.getSettings();
-   webSettings.setJavaScriptEnabled(true);
-   webSettings.setMediaPlaybackRequiresUserGesture(false);
-
-   final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-   .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-   .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(this))
-   .build();
-
-   webView.setWebViewClient(new LocalContentWebViewClient(assetLoader));
-
-   webView.addJavascriptInterface("<Add your listner class here>");
-
-           webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
-                '<For printing logs>''
-                return true;
-            }
-
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    request.grant(request.getResources());
-                }
-            }
-        });
-
-        webView.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+    private boolean isRunning = false;
 ```
-  
 
+Step 2: Define the OnImageListener class.
 
-3. Add a private class extending WebViewClientCompat. as follows.
 ```java
-private class LocalContentWebViewClient extends WebViewClientCompat {
-
-        private final WebViewAssetLoader mAssetLoader;
-
-        LocalContentWebViewClient(WebViewAssetLoader assetLoader) {
-            mAssetLoader = assetLoader;
-        }
-
-        @Override
-        public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            super.onPageStarted(view, url, favicon);
-            String script = "\"\"\n" +
-                    "            function log(emoji, type, args) {\n" +
-                    "              window.outPutMessageHandler.postMessage(\n" +
-                    "                `${emoji} JS ${type}: ${Object.values(args)\n" +
-                    "                  .map(v => typeof(v) === \"undefined\" ? \"undefined\" : typeof(v) === \"object\" ? JSON.stringify(v) : v.toString())\n" +
-                    "                  .map(v => v.substring(0, 3000)) // Limit msg to 3000 chars\n" +
-                    "                  .join(\", \")}`\n" +
-                    "              )\n" +
-                    "            }\n" +
-                    "        \n" +
-                    "            let originalLog = console.log\n" +
-                    "            let originalWarn = console.warn\n" +
-                    "            let originalError = console.error\n" +
-                    "            let originalDebug = console.debug\n" +
-                    "        \n" +
-                    "            console.log = function() { log(\"\uD83D\uDCD7\", \"log\", arguments); originalLog.apply(null, arguments) }\n" +
-                    "            console.warn = function() { log(\"\uD83D\uDCD9\", \"warning\", arguments); originalWarn.apply(null, arguments) }\n" +
-                    "            console.error = function() { log(\"\uD83D\uDCD5\", \"error\", arguments); originalError.apply(null, arguments) }\n" +
-                    "            console.debug = function() { log(\"\uD83D\uDCD8\", \"debug\", arguments); originalDebug.apply(null, arguments) }\n" +
-                    "        \n" +
-                    "            window.addEventListener(\"error\", function(e) {\n" +
-                    "               log(\"\uD83D\uDCA5\", \"Uncaught\", [`${e.message} at ${e.filename}:${e.lineno}:${e.colno}`])\n" +
-                    "            })\n" +
-                    "        \"\"";
-
-            view.evaluateJavascript(script, new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(String s) {
-                    Log.d("JavaScript onPageStart", s);
-                }
-            });
-        }
-
-        @Override
-        public void onPageFinished(WebView view, String url) {
-            super.onPageFinished(view, url);
-           pageLoadFinished(view);
-
-        }
-
-        @Override
-        @RequiresApi(21)
-        public WebResourceResponse shouldInterceptRequest(WebView view,
-                                                          WebResourceRequest request) {
-            return mAssetLoader.shouldInterceptRequest(request.getUrl());
-        }
-
-
-
-        @Override
-        @SuppressWarnings("deprecation") // to support API < 21
-        public WebResourceResponse shouldInterceptRequest(WebView view,
-                                                          String url) {
-            return mAssetLoader.shouldInterceptRequest(Uri.parse(url));
+public class OnImageListener implements HybridOCRLib.DCOCRResultListener {
+    @JavascriptInterface
+    public void postMessage(String message) {
+        if (!isRunning) {
+            isRunning = true;
+            Log.d("OnImageListener", message);
+            HybridOCRLib hybridOCRLib = new HybridOCRLib();
+            hybridOCRLib.scanImage(message, this);
         }
     }
 
+    @Override
+    public void onSuccessMRZScan(MRZInfo mrzInfo, String mrzLines) {
+        isRunning = false;
+        String script = "window.AC.parse_mrz(\"" + mrzLines + "\");" +
+                " console.log('evaluated script')";
+        Log.d("JS CODE", script);
+        runOnUiThread(() -> webView.evaluateJavascript(script, s -> Log.d("onReceiveValue" , s)));
+    }
+
+    @Override
+    public void onFailure(Exception error) {
+        isRunning = false;
+    }
+}
 ```
 
+### **Output listener**
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Here we will define the 'outputListener'. 
 
-4. Now load following javascript method in activity class which will run on finishing page load.(Refer following code snippet.)
+This outputListener will capture the output including MRZ information.
+
 ```java
- private void pageLoadFinished(WebView view) {
-        if (ContextCompat.checkSelfPermission(DocumentCaptureActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
-            }
-        }else  {
-            String modelUrl = "https://appassets.androidplatform.net/assets/models/";
-
-            String script = "\"\"\n" +
-                    "        window.AC = new Autocapture();\n" +
-                    "        window.AC.init({\n" +
-                    "            CONTAINER_ID: 'AC_mount',\n" +
-                    "            LANGUAGE: 'en',\n" +
-                    "            MRZ: false,\n" +
-                    "            CHECK_TOTAL:5,\n" +
-                    "            CROP_CARD: true,\n" +
-                    "            MRZ_SETTINGS: {\n" +
-                    "                MRZ_RETRIES: 50,\n" +
-                    "                FLIP: true,\n" +
-                    "                FLIP_EXCEPTION: ['P'],\n" +
-                    "                MIN_VALID_SCORE: 50,\n" +
-                    "                OCR: false\n" +
-                    "            },\n" +
-                    "            MODELS_PATH:\"" + modelUrl + "\",\n" +
-                    "            onComplete: function (data) {\n" +
-                    "                  console.log(data);\n" +
-                    "                imageMessageHandler.postMessage(JSON.stringify(data));\n" +
-                    "                window.AC.stop()\n" +
-                    "            },\n" +
-                    "            onError: function(error) {\n" +
-                    "                console.log(error)\n" +
-                    "                window.AC.stop();\n" +
-                    "                window.AC.alert(error)\n" +
-                    "            },\n" +
-                    "                  onUserExit: function (data) {\n" +
-                    "                           window.webkit.messageHandlers.exit.postMessage(data);\n" +
-                    "                       }\n" +
-                    "                   });\n" +
-                    "        \"\"";
-
-            Log.d("JavaScript SCRIPT", script);
-
-            view.evaluateJavascript(script, new ValueCallback<String>() {
-                @Override
-                public void onReceiveValue(String s) {
-                    Log.d("JavaScriptLog", s);
-                }
-            });
+public class OutputListener {
+        @JavascriptInterface
+        public void postMessage(String message) throws JSONException {
+            Gson gson = new Gson();
+            Log.d("MRZ_OUTPUT", message);
+            ImagesModel imagesModel = gson.fromJson(message, ImagesModel.class);
         }
-
-   }
+    }
 ```
-       
 
-5. To receive the captured image from above javascript code, write a listner as follwos.
+## **Loading AutoCapture SDK**
+
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Here we will configure the [onImageListener](#onimage-listener). 
+
+Before continuing, please make sure to read the [Configuration](../README.md#configuration) documentation.
+
+Now, we will configure the AutoCapture SDK and start it. An example is given below. In this example, the configuration requires two additional variables: `modelURL`, `TOKEN`.
+
+First, `modelURL` indicates the location where the SDK models can be found. As explained in [1.4](#14-setting-up-the-assets-folder) this will be in the created `assets` folder. The `modelURL` will than be: `https://appassets.androidplatform.net/assets/<PATH TO AUTOCAPTURE FOLDER>/html/models/`
+
+Second, `TOKEN` needs to be replaced by a valid [SDK Token](../README.md#sdk-token).
+
+As can be seen in the example below, the `listeners` from [2.1](#21-set-up-listeners) are used within the `onComplete`, `onError` and `onUserExit` callback functions to handle the data.
+
+Note: Within `MRZ_SETTINGS` the setting `OCR` is `false`, please refer to [2.3](#23-hybrid-ocr) and [External MRZ](../README.md/#external-mrz).
+
 ```java
- public class ImageListner{
-   @JavascriptInterface
-   public void postMessage(String message) {
-   //Here you will receive the JSON containing the the images in bytes format.
-   }
-   }
+private void startAutoCaptureConfig(WebView view) {
+    // Requesting Camera Access Permissions
+    if (ContextCompat.checkSelfPermission(DocumentCaptureActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
+        }
+    }else  {
+        String modelUrl = "https://appassets.androidplatform.net/assets/<PATH TO AUTOCAPTURE FOLDER>/html/models/";
+        
+        String script = "\"\"\n" +
+        "        window.AC = new Autocapture();\n" +
+        "        window.AC.init({\n" +
+        "            CONTAINER_ID: 'AC_mount',\n" +
+        "            LANGUAGE: 'en',\n" +
+        "            MRZ: true,\n" +
+        "            CHECK_TOTAL:5,\n" +
+        "            CROP_CARD: true,\n" +
+        "            MRZ_SETTINGS: {\n" +
+        "                MRZ_RETRIES: -1,\n" +
+        "                FLIP: true,\n" +
+        "                FLIP_EXCEPTION: ['P'],\n" +
+        "                MIN_VALID_SCORE: 50,\n" +
+        "                OCR: false\n" +
+        "            },\n" +
+        "            MODELS_PATH:\"" + modelUrl + "\",\n" +
+        "            TOKEN: \"" + <YOUR SDK TOKEN> + "\",\n" +
+        "            onComplete: function (data) {\n" +
+        "                outputListenerHandler.postMessage(JSON.stringify(data));\n" +
+        "            },\n" +
+        "            onImage: function (data) {\n" +
+        "                onImageMessageHandler.postMessage(JSON.stringify(data));\n" +
+        "            },\n" +
+        "            onError: function(error) {\n" +
+        "                exitMessageHandler.postMessage(error);\n" +
+        "            },\n" +
+        "            onUserExit: function (error) {\n" +
+        "                exitMessageHandler.postMessage(error);\n" +
+        "             }\n" +
+        "          });\n" +
+        "        \"\"";
+
+        Log.d("JavaScript SCRIPT", script);
+
+        webView.evaluateJavascript(script, new ValueCallback<String>() {
+            @Override
+            public void onReceiveValue(String s) {
+                Log.d("JavaScriptLog", s);
+            }
+        });
+    }
+}
 ```
-  
 
+## **Configuring WebView**
 
+Note: This is an extension of [AutoCapture repository Documentation](https://github.com/datacheckerbv/AutoCapture).
+Here we will set the [onImageListener](#onimage-listener) and the [outputListener](#output-listener).
 
+Inside the `onCreate()` method of your activity, configure the `WebView` to load and display your web app. This involves enabling JavaScript, setting up the asset loader, and configuring various settings.
 
-
-6. In your activity class, implement 'DCOCRResultListener' interface. It has two methods as follows.
 ```java
-@Override
-   public void onSuccessMRZScan(MRZInfo mrzInfo) {
-   // Here you will receive the scanned MRZ data in the object.
-   }
+// Create WebView
+webView = findViewById(<YOUR ID>);
 
-   @Override
-   public void onFailure(Constants.ERROR_CODE error) {
-   // Error if MRZ Scan fails.
-   Log.d("Error", error.name());
-   }
+WebSettings webSettings = webView.getSettings();
+webSettings.setJavaScriptEnabled(true);
+webSettings.setMediaPlaybackRequiresUserGesture(false);
+
+// Configure asset loader
+final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+        .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+        .addPathHandler("/res/", new WebViewAssetLoader.ResourcesPathHandler(this))
+        .build();
+
+// Set AutoCaptureWebViewClient client
+webView.setWebViewClient(new AutoCaptureWebViewClient(assetLoader));
+
+// Add Output listener
+webView.addJavascriptInterface(new OutputListener(), "outputListenerHandler");
+
+// Add onImage listener
+webView.addJavascriptInterface(new OnImageListener(), "onImageListenerHandler");
+
+// Add Exit listener
+webView.addJavascriptInterface(new ExitListener(), "exitListenerHandler");
+
+// Set WebChromeClient for console messages and permissions
+webView.setWebChromeClient(new WebChromeClient() {
+    @Override
+    public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+        Log.d(consoleMessage.message())
+        return true;
+    }
+
+    @Override
+    public void onPermissionRequest(final PermissionRequest request) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            request.grant(request.getResources());
+        }
+    }
+});
+
+// Load the web app URL
+webView.loadUrl("https://appassets.androidplatform.net/assets/<PATH TO AUTOCAPTURE FOLDER>/index.html");
 ```
-   
+ 
 
-7. Once you implement these methods. You need to call following function and pass it the output you received in step no. 5
-```java
-HybridOCRLib hybridOCRLib = new HybridOCRLib(this, this);
-   hybridOCRLib.scanImage(dataString, this);
-```
-   
 
-In above code snippet for scanImage() method, first parameter is image dataString and other parameter is 'DCOCRResultListener'.
-
-              
