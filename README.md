@@ -11,7 +11,7 @@ Steps for Hybrid OCR.
 Before you begin, ensure you have the following:
 
 - Android Studio installed on your development machine.
-- The integrated [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture) according to the `/android` documentation.
+- The integrated [AutoCapture SDK](https://github.com/datacheckerbv/AutoCapture) according to the [Android](https://github.com/datacheckerbv/AutoCapture/android/README.md) documentation.
 - The [HybridOCR Android SDK](https://github.com/datacheckerbv/HybridOCR).
 
 ## Set Dependencies.
