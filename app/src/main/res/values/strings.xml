@@ -1,7 +1,0 @@
-<resources>
-    <string name="app_name">HybridOCR</string>
-
-    <string name="permission_title">Permission Required</string>
-    <string name="permission_description">We need your permission to access camera in order to scan Id Card / Passport.</string>
-    <string name="button_ok">OK</string>
-</resources>
